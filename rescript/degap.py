@@ -5,19 +5,36 @@
 #
 # The full license is in the file LICENSE, distributed with this software.
 # ----------------------------------------------------------------------------
-
+from multiprocessing import Pool, cpu_count
 from q2_types.feature_data import (DNAFASTAFormat, AlignedDNAIterator)
+from skbio import DNA
+
+CHUNK_LEN = 75
+
+
+def worker(seq_obj):
+    '''Degap a single sequence and place the result in a queue'''
+    dg_seq = seq_obj.degap()
+    return dg_seq
 
 
 def degap_seqs(aligned_sequences:
                AlignedDNAIterator,
                min_length: int = 1) -> DNAFASTAFormat:
     result = DNAFASTAFormat()
-    with result.open() as out_fasta:
+
+    pool = Pool(4)
+    with result.open() as out:
         for seq in aligned_sequences:
-            dg_seq = seq.degap()
-            #  If seq is all gaps, then dg_seq will be an empty string
-            #  and we'll not write it out.
+            seq_chunks = [seq[i:i + CHUNK_LEN] for i in
+                          range(0, len(seq), CHUNK_LEN)]
+            dg_seqs = pool.imap(worker, seq_chunks)
+            dg_seq = DNA.concat(dg_seqs)
+            dg_seq.metadata = seq.metadata
             if len(dg_seq) >= min_length:
-                dg_seq.write(out_fasta)
+                dg_seq.write(out)
+
+    pool.close()
+    pool.join()
+
     return result
