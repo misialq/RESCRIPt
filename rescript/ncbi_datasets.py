@@ -20,7 +20,7 @@ from ncbi.datasets.openapi import ApiClient as DatasetsApiClient
 import pandas as pd
 import skbio
 from multiprocessing import Manager
-from ncbi.datasets import ApiException
+from ncbi.datasets import ApiException, Configuration
 from q2_types.feature_data import DNAFASTAFormat
 from q2_types.genome_data import (LociDirectoryFormat,
                                   ProteinsDirectoryFormat)
@@ -225,7 +225,9 @@ def get_ncbi_genomes(
         'only_reference': only_reference, 'page_size': page_size,
         'taxon': taxon, 'tax_exact_match': tax_exact_match
     }
-    with DatasetsApiClient() as api_client:
+    config = Configuration.get_default_copy()
+    config.proxy = os.environ.get('http_proxy')
+    with DatasetsApiClient(configuration=config) as api_client:
         api_instance = nd.GenomeApi(api_client)
 
         assembly_to_taxon = _get_assembly_descriptors(
